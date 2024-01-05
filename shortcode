@@ -1,0 +1,103 @@
+// Shortcode button submit
+function submit_post_chgt_shortcode() {
+  ob_start();
+?>
+
+<form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
+  <!-- Các shortcode cho các trường nhập liệu -->
+  [post_title]
+  [post_content]
+  [post_category]
+  [feature_image]
+  [mobile_number]
+  [email_post]
+  [map_post]
+  [location_dropdown]
+  [taxonomy_tcch]
+  <input type="hidden" name="action" value="submit_post_form_chgt">
+  <button type="submit">Đăng bài</button>
+</form>
+
+<?php
+  return ob_get_clean();
+}
+
+add_shortcode( 'submit_post_chgt', 'submit_post_chgt_shortcode' );
+
+// Hàm xử lý khi submit form
+function submit_post_form_chgt() {
+
+  // Nhận dữ liệu
+  $title = $_POST['post_title'];
+  $content = $_POST['post_content'];
+  $category = $_POST['post_category']; 
+  $featured_image = $_POST['feature_image'];
+  $mobile = $_POST['mobile_number'];
+  $email = $_POST['email_post'];
+  $map = $_POST['map_post'];
+  $location_dropdown = $_POST['location_dropdown'];  
+  $taxonomy = $_POST['taxonomy_tcch'];
+
+  // Tạo bài viết mới
+  $post_id = wp_insert_post(array(
+  'post_title' => $title,
+  'post_content' => $content,
+  'post_category' => $category, 
+  'feature_image' => $featured_image,
+  'mobile_number' => $mobile,
+  'email' => $email,
+  'map' => $map,
+  'location' => $location_dropdown,
+  'tuy_chon_cuu_ho' => $taxonomy,
+  'post_status' => 'publish'
+));
+
+  $post_id = wp_insert_post( $post_data );
+  
+  if($feature_image) {
+
+  // Upload ảnh lên
+  $upload = wp_upload_bits($_FILES['feature_image']['name'], null, file_get_contents($_FILES['feature_image']['tmp_name']));
+
+  if(isset($upload['error']) && $upload['error'] != 0) {
+    wp_die('Có lỗi upload ảnh featured. Mã lỗi: ' . $upload['error']); 
+  } else {
+    $filename = $upload['file'];
+
+    // Cập nhật thông tin attachment
+    $attachment_id = wp_insert_attachment(array(
+      'guid' => $upload['url'], 
+      'post_mime_type' => $_FILES['feature_image']['type'],
+      'post_title' => $_FILES['feature_image']['name'],
+      'post_content' => '',
+      'post_status' => 'inherit',
+      'post_author' => 1
+    ), $filename, $post_id); 
+
+    // Thiết lập ảnh đại diện
+    require_once(ABSPATH . 'wp-admin/includes/image.php');
+    $attach_data = wp_generate_attachment_metadata( $attachment_id, $filename );
+    wp_update_attachment_metadata( $attachment_id, $attach_data );
+    set_post_thumbnail( $post_id, $attachment_id );
+
+  }
+  }
+  
+  if($mobile) {
+  update_post_meta($post_id, 'mobile_number', $mobile);  
+  }
+  if($email) {
+  update_post_meta($post_id, 'email', $email);  
+  }
+  if($map) {
+  update_post_meta($post_id, 'map', $map);  
+  }
+  
+  // Chuyển hướng tới trang bài viết vừa tạo
+  wp_redirect(get_permalink($post_id));
+  exit;
+
+}
+
+add_action('admin_post_nopriv_submit_post_form', 'submit_post_form_chgt');
+add_action('admin_post_submit_post_form', 'submit_post_form_chgt');
